@@ -2,14 +2,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <ctype.h>
 #include "../include/sha256.h"
 
 #define MAX_USER 50
-#define LOGIN_FILE "../data/login.dat"
+#define LOGIN_FILE "data/login.dat"
 
 void printMainMenu(void);
 void handleMainMenu(void);
 void login_user(void);
+void booksMenu(void);
+void addBook(void);
+void membersMenu(void);
+void clearInput(void);
+int isValidEmail(const char *email);
+int isDigitsOnly(const char *s);
 
 typedef struct
 {
@@ -27,9 +34,9 @@ typedef struct
     char phone[10];
 } Member;
 
-const char *BOOKS_FILE = "data/books.txt";
+const char *BOOKS_FILE = "data/books.dat";
 
-const char *MEMBERS_FILE = "data/members.txt";
+const char *MEMBERS_FILE = "data/members.dat";
 
 int main()
 {
@@ -51,6 +58,7 @@ void login_user()
     if (!file)
     {
         printf("No account found. Please register first.\n");
+        system("pause");
         return;
     }
 
@@ -96,8 +104,41 @@ void login_user()
     }
 }
 
+// ultils functions
+void clearInput(void)
+{
+    int c;
+    while (c = getchar() != '\n' && c != EOF)
+        ;
+}
+
+int isDigitsOnly(const char *s)
+{
+    while (*s)
+    {
+        if (!isdigit(*s))
+            return 0;
+        s++;
+    }
+}
+
+// Check email that:
+// - both are found
+// - '@' comes before the last '.'
+// - '@' is not the first char
+// - '.' is not the last char
+int isValidEmail(const char *email)
+{
+    const char *at = strchr(email, '@');
+    const char *dot = strrchr(email, '.');
+
+    return at && dot && at > email && dot > at && dot[1] != '\0';
+}
+
+// UI functions
 void printMainMenu(void)
 {
+    system("cls"); // Clear the console screen
     puts("===== LIBRARY MANAGEMENT SYSTEM =====");
     puts("1. Books");
     puts("2. Members");
@@ -108,7 +149,7 @@ void printMainMenu(void)
 void handleMainMenu(void)
 {
     int choice;
-    while (scanf("%d,&choice") != 1)
+    while (scanf("%d", &choice) != 1)
     {
         clearInput();
     }
@@ -118,13 +159,102 @@ void handleMainMenu(void)
         booksMenu();
         break;
     case 2:
-        membersMenu();
+        // membersMenu();
         break;
     case 3:
         puts("Exiting the system.");
         exit(0);
     default:
         puts("Invalid choice. Please try again.");
+        system("pause");
+        clearInput(); // Clear the input buffer
+        printMainMenu();
         break;
     }
+}
+
+// Function to display the books menu
+void booksMenu(void)
+{
+    system("cls"); // Clear the console screen
+    puts("===== BOOKS MENU =====");
+    puts("1. Add Book");
+    puts("2. View Books");
+    puts("3. Back to Main Menu");
+    printf("Select > ");
+
+    int choice;
+    while (scanf("%d", &choice) != 1)
+    {
+        clearInput();
+        printf("Invalid input. Please try again: ");
+    }
+
+    switch (choice)
+    {
+    case 1:
+        addBook();
+        break;
+    case 2:
+        // viewBooks();
+        break;
+    case 3:
+        printMainMenu();
+        handleMainMenu();
+        break;
+    default:
+        puts("Invalid choice. Please try again.");
+        booksMenu();
+        break;
+    }
+}
+
+void addBook()
+{
+    system("cls"); // Clear the console screen
+    Book newBook;
+    FILE *file = fopen(BOOKS_FILE, "ab+");
+    if (!file)
+    {
+        perror("Failed to open books file");
+        return;
+    }
+
+    printf("Enter book ID: ");
+    while (scanf("%d", &newBook.bookID) != 1 || newBook.bookID <= 0)
+    {
+        clearInput();
+        printf("Invalid input. Please enter a positive integer for book ID: ");
+    }
+
+    clearInput(); // Clear the newline character from the input buffer
+
+    printf("Enter book title: ");
+    fgets(newBook.title, sizeof(newBook.title), stdin);
+    newBook.title[strcspn(newBook.title, "\n")] = '\0'; // Remove trailing newline
+
+    printf("Enter book author: ");
+    fgets(newBook.author, sizeof(newBook.author), stdin);
+    newBook.author[strcspn(newBook.author, "\n")] = '\0'; // Remove trailing newline
+
+    printf("Enter publication date (YYYY-MM-DD): ");
+    char dateStr[11];
+    fgets(dateStr, sizeof(dateStr), stdin);
+    // set all fields of tm to 0
+    dateStr[strcspn(dateStr, "\n")] = '\0'; // Remove trailing newline
+    struct tm tm = {0};
+    strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", &tm);
+    newBook.publicationDate = mktime(&tm);
+
+    printf("Enter quantity: ");
+    while (scanf("%d", &newBook.quantity) != 1 || newBook.quantity < 0)
+    {
+        clearInput();
+        printf("Invalid input. Please enter a non-negative integer for quantity: ");
+    }
+
+    fwrite(&newBook, sizeof(Book), 1, file);
+    fclose(file);
+
+    puts("✅ Book added successfully!");
 }
