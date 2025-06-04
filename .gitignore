@@ -1,0 +1,17 @@
+﻿# --- build output ---
+/*.exe
+/*.out
+/build/
+/Debug/
+/Release/
+
+# --- IDE files ---
+.vscode/
+*.code-workspace
+
+# --- OS junk ---
+.DS_Store
+Thumbs.db
+
+# --- data that should not ship ---
+logs/
