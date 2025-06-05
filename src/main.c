@@ -15,7 +15,10 @@ void booksMenu(void);
 void addBook(void);
 void viewBooks(void);
 void editBookMenu(int bookID);
+void searchBooks(void);
 void membersMenu(void);
+void addMember(void);
+void viewMembers(void);
 void clearInput(void);
 int isValidEmail(const char *email);
 int isDigitsOnly(const char *s);
@@ -35,12 +38,22 @@ typedef struct
     int memberID;
     char name[100];
     char email[100];
-    char phone[10];
+    char phone[11]; // 10 digits + null terminator
 } Member;
+typedef struct
+{
+    int bookID;
+    int memberID;
+    time_t borrowDate;
+    time_t returnDate;
+    int isReturned; // 0 for not returned, 1 for returned
+} BorrowedBook;
 
 const char *BOOKS_FILE = "data/books.dat";
 
 const char *MEMBERS_FILE = "data/members.dat";
+
+const char *BORROWED_BOOKS_FILE = "data/borrow.dat";
 
 // Main function to start the program
 int main()
@@ -59,6 +72,7 @@ void clearInput(void)
     }
 }
 
+// Check if the string contains only digits
 int isDigitsOnly(const char *s)
 {
     while (*s)
@@ -67,6 +81,7 @@ int isDigitsOnly(const char *s)
             return 0;
         s++;
     }
+    return 1;
 }
 
 // Check email that:
@@ -254,7 +269,7 @@ void handleMainMenu(void)
         booksMenu();
         break;
     case 2:
-        // membersMenu();
+        membersMenu();
         break;
     case 3:
         puts("Exiting the system.");
@@ -275,7 +290,8 @@ void booksMenu(void)
     puts("===== BOOKS MENU =====");
     puts("1. Add Book");
     puts("2. View Books");
-    puts("3. Back to Main Menu");
+    puts("3. Search Books");
+    puts("4. Back to Main Menu");
     printf("Select > ");
 
     int choice;
@@ -294,6 +310,9 @@ void booksMenu(void)
         viewBooks();
         break;
     case 3:
+        searchBooks();
+        break;
+    case 4:
         printMainMenu();
         handleMainMenu();
         break;
@@ -613,7 +632,7 @@ void editBookMenu(int bookID)
         puts("✅ Book updated successfully!");
         break;
     case 6:
-
+    {
         // Delete the book
         FILE *tempFile = fopen("data/temp_books.dat", "wb+");
         if (!tempFile)
@@ -637,6 +656,7 @@ void editBookMenu(int bookID)
         rename("data/temp_books.dat", BOOKS_FILE);
         puts("✅ Book deleted successfully!");
         break;
+    }
     case 7:
         puts("Cancelled. Returning to the books menu...");
         fclose(file);
@@ -650,4 +670,267 @@ void editBookMenu(int bookID)
     fclose(file);
     system("pause");
     booksMenu();
+}
+
+void searchBooks(void)
+{
+    FILE *file = fopen(BOOKS_FILE, "rb+");
+    Book book;
+    int found = 0;
+    system("cls"); // Clear the console screen
+    puts("===== BOOK SEARCH =====");
+    puts("Choose a search option:");
+    puts("1. Search by ID");
+    puts("2. Search by Title");
+    puts("3. Search by Author");
+    puts("4. Back to Books Menu");
+    printf("Select > ");
+    int choice;
+
+    while (scanf("%d", &choice) != 1 || choice < 1 || choice > 4)
+    {
+        clearInput();
+        printf("Invalid input. Please select a valid option: ");
+    }
+    clearInput(); // Clear the newline character from the input buffer
+    switch (choice)
+    {
+    case 1:
+        printf("Enter book ID: ");
+        int bookID;
+        rewind(file);
+        while (scanf("%d", &bookID) != 1 || bookID <= 0)
+        {
+            clearInput();
+            printf("Invalid book ID. Please enter a valid positive integer: ");
+        }
+        clearInput(); // Clear the newline character from the input buffer
+        printf("Searching for book with ID: %d\n", bookID);
+        printf("===========================\n");
+        while (fread(&book, sizeof(Book), 1, file) == 1)
+        {
+            if (book.bookID == bookID)
+            {
+
+                printf("Book ID: %d\n", book.bookID);
+                printf("Title: %s\n", book.title);
+                printf("Author: %s\n", book.author);
+                char dateStr[11];
+                strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", localtime(&book.publicationDate));
+                printf("Publication Date: %s\n", dateStr);
+                printf("Quantity: %d\n", book.quantity);
+                puts("-------------------------");
+                found += 1;
+            }
+        }
+        break;
+    case 2:
+        printf("Enter book title: ");
+        char title[100];
+        fgets(title, sizeof(title), stdin);
+        while (strlen(title) == 0 || strspn(title, " \t\r\n") == strlen(title))
+        {
+            printf("Title cannot be empty. Please enter a valid title: ");
+            fgets(title, sizeof(title), stdin);
+        }
+        title[strcspn(title, "\n")] = '\0'; // Remove trailing newline
+        printf("Searching for books with title containing: %s\n", title);
+        printf("===========================\n");
+        while (fread(&book, sizeof(Book), 1, file) == 1)
+        {
+            if (_stricmp(book.title, title) == 0) // compare strings for case-insensitive match
+            {
+                printf("Book ID: %d\n", book.bookID);
+                printf("Title: %s\n", book.title);
+                printf("Author: %s\n", book.author);
+                char dateStr[11];
+                strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", localtime(&book.publicationDate));
+                printf("Publication Date: %s\n", dateStr);
+                printf("Quantity: %d\n", book.quantity);
+                puts("-------------------------");
+                found += 1;
+            }
+        }
+        break;
+    case 3:
+        printf("Enter book author: ");
+        char author[100];
+        fgets(author, sizeof(author), stdin);
+        while (strlen(author) == 0 || strspn(author, " \t\r\n") == strlen(author))
+        {
+            printf("Author cannot be empty. Please enter a valid author name: ");
+            fgets(author, sizeof(author), stdin);
+        }
+        author[strcspn(author, "\n")] = '\0'; // Remove trailing newline
+        printf("Searching for books by author containing: %s\n", author);
+        printf("===========================\n");
+        while (fread(&book, sizeof(Book), 1, file) == 1)
+        {
+            if (_stricmp(book.author, author) == 0)
+            {
+                printf("Book ID: %d\n", book.bookID);
+                printf("Title: %s\n", book.title);
+                printf("Author: %s\n", book.author);
+                char dateStr[11];
+                strftime(dateStr, sizeof(dateStr), "%Y-%m-%d", localtime(&book.publicationDate));
+                printf("Publication Date: %s\n", dateStr);
+                printf("Quantity: %d\n", book.quantity);
+                puts("-------------------------");
+                found += 1;
+            }
+        }
+        break;
+    case 4:
+        puts("Returning to the books menu...");
+        fclose(file);
+        system("pause");
+        booksMenu();
+        return;
+    }
+    fclose(file);
+    if (found == 0)
+    {
+        puts("No books found matching your search criteria.");
+    }
+    else
+    {
+        printf("Total books found: %d\n", found);
+    }
+    puts("End of search results.");
+    puts("===========================");
+    system("pause");
+    booksMenu();
+}
+
+// Function to display the members menu
+void membersMenu(void)
+{
+    system("cls"); // Clear the console screen
+    puts("===== MEMBERS MENU =====");
+    puts("1. Add Member");
+    puts("2. View Members");
+    puts("3. Issue/Return Book");
+    puts("4. Back to Main Menu");
+    printf("Select > ");
+
+    int choice;
+    while (scanf("%d", &choice) != 1)
+    {
+        clearInput();
+        printf("Invalid input. Please try again: ");
+    }
+
+    switch (choice)
+    {
+    case 1:
+        addMember();
+        break;
+    case 2:
+        viewMembers();
+        break;
+    case 3:
+        // searchMembers();
+        break;
+    case 4:
+        printMainMenu();
+        handleMainMenu();
+        break;
+    default:
+        puts("Invalid choice. Please try again.");
+        membersMenu();
+        break;
+    }
+}
+
+void addMember(void)
+{
+    system("cls"); // Clear the console screen
+    Member newMember;
+    FILE *file = fopen(MEMBERS_FILE, "ab+");
+    if (!file)
+    {
+        perror("Failed to open members file");
+        return;
+    }
+
+    printf("Enter member ID: ");
+    while (scanf("%d", &newMember.memberID) != 1 || newMember.memberID <= 0)
+    {
+        clearInput();
+        printf("Invalid member ID. Please enter a valid positive integer: ");
+    }
+
+    clearInput(); // Clear the newline character from the input buffer
+
+    printf("Enter member name: ");
+    fgets(newMember.name, sizeof(newMember.name), stdin);
+    newMember.name[strcspn(newMember.name, "\n")] = '\0'; // Remove trailing newline
+
+    printf("Enter member email: ");
+    fgets(newMember.email, sizeof(newMember.email), stdin);
+    newMember.email[strcspn(newMember.email, "\n")] = '\0'; // Remove trailing newline
+    while (!isValidEmail(newMember.email))
+    {
+        printf("Invalid email format. Please enter a valid email: ");
+        fgets(newMember.email, sizeof(newMember.email), stdin);
+        newMember.email[strcspn(newMember.email, "\n")] = '\0'; // Remove trailing newline
+    }
+
+    printf("Enter member phone number (10 digits): ");
+    fgets(newMember.phone, sizeof(newMember.phone), stdin);
+    newMember.phone[strcspn(newMember.phone, "\n")] = '\0'; // Remove trailing newline
+    printf("[DEBUG] You entered: '%s'\n", newMember.phone);
+    while (strlen(newMember.phone) != 10 || !isDigitsOnly(newMember.phone))
+    {
+        printf("Invalid phone number. Please enter a valid 10-digit phone number: ");
+        fgets(newMember.phone, sizeof(newMember.phone), stdin);
+        newMember.phone[strcspn(newMember.phone, "\n")] = '\0'; // Remove trailing newline
+    }
+
+    fwrite(&newMember, sizeof(Member), 1, file);
+    fclose(file);
+
+    puts("✅ Member added successfully!");
+    system("pause");
+    membersMenu();
+}
+void viewMembers(void)
+{
+    system("cls"); // Clear the console screen
+    puts("===== LIST OF MEMBERS =====");
+    FILE *file = fopen(MEMBERS_FILE, "rb");
+    if (!file)
+    {
+        puts("No members found.");
+        system("pause");
+        membersMenu();
+    }
+    else
+    {
+        Member member;
+        int count = 0;
+        while (fread(&member, sizeof(Member), 1, file) == 1)
+        {
+            printf("Member ID: %d\n", member.memberID);
+            printf("Name: %s\n", member.name);
+            printf("Email: %s\n", member.email);
+            printf("Phone: %s\n", member.phone);
+            puts("-------------------------");
+            count++;
+        }
+        fclose(file);
+        if (count == 0)
+        {
+            puts("No members found.");
+        }
+        else
+        {
+            puts("End of member list.");
+            puts("===========================");
+            printf("Total members: %d\n", count);
+            puts("===========================");
+        }
+    }
+    system("pause");
+    membersMenu();
 }
